@@ -10,21 +10,15 @@ options(scipen = 999) # disable scientific notation
 set.seed(123)
 
 # create sample data
-demo_data_1 <- as.data.frame(matrix(nrow = 10^5, ncol = 2))
-colnames(demo_data_1) <- c("AGE_AT_ENTRY", "SUM_ASSURED")
-demo_data_1$AGE_AT_ENTRY <- round(rnorm(10^5, mean = 45, sd = 5), 0)
-demo_data_1$SUM_ASSURED  <- round(rnorm(10^5, mean = 5*10^2, sd = 10), 0)*10^3
-  
-demo_data_2 <- as.data.frame(matrix(nrow = 5*10^4, ncol = 2))
-colnames(demo_data_2) <- c("AGE_AT_ENTRY", "SUM_ASSURED")
-demo_data_2$AGE_AT_ENTRY <- round(rnorm(5*10^4, mean = 35, sd = 3), 0)
-demo_data_2$SUM_ASSURED  <- round(rnorm(5*10^4, mean = 10, sd = 2), 0)*10^3
-
 demo_data <- as.data.frame(matrix(nrow = 2*10^5, ncol = 3))
 colnames(demo_data) <- c("Product", "AGE_AT_ENTRY", "SUM_ASSURED")
 demo_data$Product <- c(rep("IPROD1", 10^5), rep("IPROD2", 10^5))
 demo_data$AGE_AT_ENTRY <- c(round(rnorm(10^5, mean = 45, sd = 5), 0), round(rnorm(10^5, mean = 35, sd = 3), 0))
 demo_data$SUM_ASSURED <- c(round(rnorm(10^5, mean = 5*10^2, sd = 10), 0)*10^3, round(rnorm(10^5, mean = 10, sd = 2), 0)*10^3)
+
+data <- subset(demo_data, Product == "IPROD1")
+head(data)
+data[, "AGE_AT_ENTRY"]
 
 # functions
 read_mpf <- function(path, filename) {
@@ -80,7 +74,6 @@ ui <- fluidPage(
     titlePanel("Model Point Files visualizer", windowTitle = "MPF visualizer"),
 
     sidebarLayout(
-        
         sidebarPanel(
             wellPanel(
                 radioButtons(inputId = "no_mpf", label = "Input type:", choices = c("Show 1 MPF" = 1, "Compare 2 MPFs" = 2), 
@@ -95,7 +88,7 @@ ui <- fluidPage(
                 ),
                 
                 conditionalPanel(condition = "input.no_mpf == 2",
-                      htmlOutput(outputId = "path_1_2")
+                    htmlOutput(outputId = "path_1_2")
                 )
             ),            
             
@@ -161,36 +154,14 @@ server <- function(input, output, session) {
     data_mpf <- reactive({
         if (input$no_mpf == 1) {
             req(input$selected_product)
-            data <- read_mpf(input$path, input$selected_product)
+            sel_prod <- input$selected_product
+            data <- subset(demo_data, Product == sel_prod)
+            data
         } else if (input$no_mpf == 2) {
-            req(input$path_1)
-            req(input$path_2)
-            req(input$selected_product)
-            
-            data_1 <- read_mpf(input$path_1, input$selected_product)
-            data_2 <- read_mpf(input$path_2, input$selected_product)
-            
-            # set indicators for two datasets
-            data_1$ind <- rep("1st_MPF", dim(data_1)[1])
-            data_2$ind <- rep("2nd_MPF", dim(data_2)[1])
-            
-            com_cols <- intersect(colnames(data_1), colnames(data_2))
-            data <- rbind(subset(data_1, select = com_cols), subset(data_2, select = com_cols))
+            data <- demo_data
+            data
         }
     })
-    
-    # variables with the same value for all records
-    unique_values <- reactive({
-        if (input$no_mpf == 1) {
-            data_mpf()[1,][-which(sapply(data_mpf(), is_long))]
-        }
-    })
-    
-    # get product description
-    #description <- reactive({
-    #    req(input$selected_product)
-    #    subset(desc_products, Product == input$selected_product, select = "Description")
-    #})
     
     # x-axis breaks
     binsize <- reactive({
@@ -243,24 +214,17 @@ server <- function(input, output, session) {
     output$top_text_2 <- renderUI(
         #HTML(paste0(description()),
         HTML(paste0( 
-             "<br>1st MPF contains ", nrow(subset(data_mpf(), ind == "1st_MPF")), " records.",
-             "<br>2nd MPF contains ", nrow(subset(data_mpf(), ind == "2nd_MPF")), " records."))
+             "<br>1st MPF contains ", nrow(data_mpf()), " records.",
+             "<br>2nd MPF contains ", nrow(data_mpf()), " records."))
     )
     
     output$summ_text <- renderPrint(
         summary(data_mpf()[, input$selected_var])
     )
-    
-    
-    ## tab Single values
-    output$unique_values <- renderDT({t(unique_values())},
-        options = list(autoWidth = TRUE, dom = 'ltipr')                           
-    )
+
     
     ## tab Data
-    output$data <- renderDT({data_mpf()}, 
-        options = list(autoWidth = TRUE, scrollX = TRUE, dom = 'ltipr')
-    )
+    output$data <- DT::renderDT({data_mpf()})
 }
 
 shinyApp(ui = ui, server = server)
