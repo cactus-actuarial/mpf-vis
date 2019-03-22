@@ -9,16 +9,6 @@ library(DT)
 options(scipen = 999) # disable scientific notation
 set.seed(123)
 
-# create sample data
-demo_data <- as.data.frame(matrix(nrow = 2*10^5, ncol = 3))
-colnames(demo_data) <- c("Product", "AGE_AT_ENTRY", "SUM_ASSURED")
-demo_data$Product <- c(rep("IPROD1", 10^5), rep("IPROD2", 10^5))
-demo_data$AGE_AT_ENTRY <- c(round(rnorm(10^5, mean = 45, sd = 5), 0), round(rnorm(10^5, mean = 35, sd = 3), 0))
-demo_data$SUM_ASSURED <- c(round(rnorm(10^5, mean = 5*10^2, sd = 10), 0)*10^3, round(rnorm(10^5, mean = 10, sd = 2), 0)*10^3)
-
-data <- subset(demo_data, Product == "IPROD1")
-head(data)
-data[, "AGE_AT_ENTRY"]
 
 # functions
 read_mpf <- function(path, filename) {
@@ -67,6 +57,39 @@ is_long <- function(vector) {
     length(unique(vector)) > 1
 }
 
+rbimodal <- function (n,cpct, mu1, mu2, sig1, sig2) {
+    y0 <- rlnorm(n,mean=mu1, sd = sig1)
+    y1 <- rlnorm(n,mean=mu2, sd = sig2)
+    
+    flag <- rbinom(n,size=1,prob=cpct)
+    y <- y0*(1 - flag) + y1*flag 
+}
+
+# create demo data
+n1 = 12000
+n2 = 11500
+n3 = 5000
+n4 = 6000
+
+demo_data <- as.data.frame(matrix(nrow = (n1 + n2 + n3 + n4), ncol = 4))
+colnames(demo_data) <- c("Year", "Product", "AGE_AT_ENTRY", "SUM_ASSURED")
+
+demo_data$Year <- c(rep("2018", n1), rep("2017", n2), rep("2018", n3), rep("2017", n4))
+
+demo_data$Product <- c(rep("IPROD1", n1), rep("IPROD1", n2), rep("IPROD2", n3), rep("IPROD2", n4))
+
+demo_data$AGE_AT_ENTRY <- as.integer(
+                          c(round(rnorm(n1-n2, mean = 40.5, sd = 5), 0),  round(rnorm(n2, mean = 40, sd = 5), 0), # 2018 IPROD1
+                            round(rnorm(n2, mean = 40, sd = 5), 0), # 2017 IPROD1
+                            round(rbimodal(n3, 0.2, log(30), log(45), log(1.1), log(1.1)), 0),  # 2018 IPROD2
+                            round(rbimodal(n4, 0.2, log(30), log(45), log(1.1), log(1.1)), 0))) # 2017 IPROD2
+
+demo_data$SUM_ASSURED  <- c(round(rnorm(n1, mean = 31, sd = 5), digits = 1)*10^3, # 2018 IPROD1
+                            round(rnorm(n2, mean = 29, sd = 5), digits = 1)*10^3, # 2017 IPROD1
+                            round(rlnorm(n3, meanlog = log(100), sdlog = log(1.2)), digits = 1)*10^2, # 2018 IPROD2
+                            round(rlnorm(n4, meanlog = log(100), sdlog = log(1.2)), digits = 1)*10^2) # 2017 IPROD2
+
+
 ### app
 # ui
 ui <- fluidPage(
@@ -105,35 +128,36 @@ ui <- fluidPage(
                 tabPanel(title = "Plot", br(), 
                     
                     conditionalPanel(condition = "input.no_mpf == 1",
-                        htmlOutput(outputId = "top_text_1")
+                        htmlOutput(outputId = "top_text_s") # single
                     ),
                     
                     conditionalPanel(condition = "input.no_mpf == 2",
-                        htmlOutput(outputId = "top_text_2")
+                        htmlOutput(outputId = "top_text_d") # double
                     ),
 
                     hr(),
                     
                     conditionalPanel(condition = "input.no_mpf == 1 && input.hist_type == 1",
-                        plotOutput(outputId = "plot_1_f")
+                        plotOutput(outputId = "plot_s_f") # single frequency
                     ),
                     
                     conditionalPanel(condition = "input.no_mpf == 1 && input.hist_type == 2",
-                        plotOutput(outputId = "plot_1_d")
+                        plotOutput(outputId = "plot_s_d") # single density
                     ),
                     
                     conditionalPanel(condition = "input.no_mpf == 2 && input.hist_type == 1",
-                        plotOutput(outputId = "plot_2_f")
+                        plotOutput(outputId = "plot_d_f") # double frequency
                     ),
                     
                     conditionalPanel(condition = "input.no_mpf == 2 && input.hist_type == 2",
-                        plotOutput(outputId = "plot_2_d")
+                        plotOutput(outputId = "plot_d_d") # double density
                     ),
                     
                     hr(),
                     
                     conditionalPanel(condition = "input.no_mpf == 1",
-                        verbatimTextOutput(outputId = "summ_text")
+                        htmlOutput(outputId = "summ_text_1"),
+                        verbatimTextOutput(outputId = "summ_1")
                     )
                     
                 ),
@@ -150,15 +174,25 @@ ui <- fluidPage(
 # server
 server <- function(input, output, session) {
 
+    ## leftPanel
+    output$path <- renderUI(
+        HTML("<b>MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF")
+    )
+
+    output$path_1_2 <- renderUI(
+        HTML("<b>1st MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF<br>
+              <b>2nd MPF path:</b> C:/Actuarial_Department/Model_YE2017/MPF")
+    )
+    
     # load data
     data_mpf <- reactive({
         if (input$no_mpf == 1) {
             req(input$selected_product)
-            sel_prod <- input$selected_product
-            data <- subset(demo_data, Product == sel_prod)
+            data <- subset(demo_data, Product == input$selected_product & Year == "2018")
             data
         } else if (input$no_mpf == 2) {
-            data <- demo_data
+            req(input$selected_product)
+            data <- subset(demo_data, Product == input$selected_product)
             data
         }
     })
@@ -176,52 +210,53 @@ server <- function(input, output, session) {
     
     
     ## tab Plot
+    # information about number of records
+    output$top_text_s <- renderUI(
+        HTML("<br>MPF contains ", nrow(data_mpf()), " records.")
+    )
+    
+    output$top_text_d <- renderUI(
+        HTML("<br>1st MPF contains ", nrow(subset(data_mpf(), Year == "2018")), " records.",
+             "<br>2nd MPF contains ", nrow(subset(data_mpf(), Year == "2017")), " records.")
+    )
+    
     # main plot
-    output$plot_1_f <- renderPlot(
+    output$plot_s_f <- renderPlot(
         ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count..)) +
             geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
             xlab(input$selected_var) +
             scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
     )
     
-    output$plot_1_d <- renderPlot(
+    output$plot_s_d <- renderPlot(
         ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density..)) +
             geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
             xlab(input$selected_var) +
             scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
     )
     
-    output$plot_2_f <- renderPlot(
-        ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count.., fill = ind)) +
+    output$plot_d_f <- renderPlot(
+        ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count.., fill = Year)) +
             geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
             xlab(input$selected_var) +
             scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
     )
     
-    output$plot_2_d <- renderPlot(
-        ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density.., fill = ind)) +
+    output$plot_d_d <- renderPlot(
+        ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density.., fill = Year)) +
             geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
             xlab(input$selected_var) +
             scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
-    )
-    
-    output$top_text_1 <- renderUI(
-      #HTML(paste0(description()), 
-      HTML(paste0(         
-             "<br>MPF contains ", nrow(data_mpf()), " records."))
-    )
-    
-    output$top_text_2 <- renderUI(
-        #HTML(paste0(description()),
-        HTML(paste0( 
-             "<br>1st MPF contains ", nrow(data_mpf()), " records.",
-             "<br>2nd MPF contains ", nrow(data_mpf()), " records."))
-    )
-    
-    output$summ_text <- renderPrint(
-        summary(data_mpf()[, input$selected_var])
     )
 
+    # variables summary 
+    output$summ_text_1 <- renderUI(
+        HTML("Summary of the variable:")    
+    )
+    
+    output$summ_1 <- renderPrint(
+        summary(data_mpf()[, input$selected_var])
+    )
     
     ## tab Data
     output$data <- DT::renderDT({data_mpf()})
