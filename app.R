@@ -89,7 +89,6 @@ demo_data$SUM_ASSURED  <- c(round(rnorm(n1, mean = 31, sd = 5), digits = 1)*10^3
                             round(rlnorm(n3, meanlog = log(100), sdlog = log(1.2)), digits = 1)*10^2, # 2018 IPROD2
                             round(rlnorm(n4, meanlog = log(100), sdlog = log(1.2)), digits = 1)*10^2) # 2017 IPROD2
 
-
 ### app
 # ui
 ui <- fluidPage(
@@ -107,11 +106,11 @@ ui <- fluidPage(
             
             wellPanel(
                 conditionalPanel(condition = "input.no_mpf == 1",
-                    htmlOutput(outputId = "path")
+                    htmlOutput(outputId = "path_s")
                 ),
                 
                 conditionalPanel(condition = "input.no_mpf == 2",
-                    htmlOutput(outputId = "path_1_2")
+                    htmlOutput(outputId = "path_d")
                 )
             ),            
             
@@ -156,15 +155,17 @@ ui <- fluidPage(
                     hr(),
                     
                     conditionalPanel(condition = "input.no_mpf == 1",
-                        htmlOutput(outputId = "summ_text_1"),
-                        verbatimTextOutput(outputId = "summ_1")
+                        htmlOutput(outputId = "summ_text_s"),
+                        verbatimTextOutput(outputId = "summ_s")
+                    ),
+                    
+                    conditionalPanel(condition = "input.no_mpf == 2",
+                        htmlOutput(outputId = "summ_text_d_1"),
+                        verbatimTextOutput(outputId = "summ_d_1"),
+                        htmlOutput(outputId = "summ_text_d_2"),
+                        verbatimTextOutput(outputId = "summ_d_2")
                     )
                     
-                ),
-                
-                tabPanel(title = "Data",
-                         br(),
-                         DTOutput(outputId = "data")
                 )
             )
         )
@@ -175,11 +176,11 @@ ui <- fluidPage(
 server <- function(input, output, session) {
 
     ## leftPanel
-    output$path <- renderUI(
+    output$path_s <- renderUI(
         HTML("<b>MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF")
     )
 
-    output$path_1_2 <- renderUI(
+    output$path_d <- renderUI(
         HTML("<b>1st MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF<br>
               <b>2nd MPF path:</b> C:/Actuarial_Department/Model_YE2017/MPF")
     )
@@ -250,16 +251,30 @@ server <- function(input, output, session) {
     )
 
     # variables summary 
-    output$summ_text_1 <- renderUI(
-        HTML("Summary of the variable:")    
+    output$summ_text_s <- renderUI(
+        HTML("<p>Summary of ", input$selected_var, ":</p>")    
     )
     
-    output$summ_1 <- renderPrint(
+    output$summ_s <- renderPrint(
         summary(data_mpf()[, input$selected_var])
     )
     
-    ## tab Data
-    output$data <- DT::renderDT({data_mpf()})
+    output$summ_text_d_1 <- renderUI(
+        HTML("<p>Summary of ", input$selected_var, ":</p>
+              <p>1st MPF:")    
+    )
+    
+    output$summ_d_1 <- renderPrint(
+        summary(subset(data_mpf(), Year == 2018)[, input$selected_var])
+    )
+    
+    output$summ_text_d_2 <- renderUI(
+        HTML("<p>2nd MPF:</p>")    
+    )
+    
+    output$summ_d_2 <- renderPrint(
+        summary(subset(data_mpf(), Year = 2017)[, input$selected_var])
+    )
 }
 
 shinyApp(ui = ui, server = server)
