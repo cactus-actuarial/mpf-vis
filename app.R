@@ -1,3 +1,9 @@
+### Todo:
+# - show/hide tab based on click
+# - all elements depend on click rather than conditional panels?
+# - populate data tabs
+# - rsconnect
+
 library(tibble)
 library(ggplot2)
 library(shiny)
@@ -7,8 +13,8 @@ library(DT)
 
 # settings
 options(scipen = 999) # disable scientific notation
+options(shiny.reactlog = TRUE)
 set.seed(123)
-
 
 # functions
 read_mpf <- function(path, filename) {
@@ -101,7 +107,8 @@ ui <- fluidPage(
                 radioButtons(inputId = "no_mpf", label = "Input type:", choices = c("Show 1 MPF" = 1, "Compare 2 MPFs" = 2), 
                              selected = 1, inline = TRUE),
                 radioButtons(inputId = "hist_type", label = "Histogram type:", choices = c("frequency" = 1, "density" = 2), 
-                             selected = 1, inline = TRUE)
+                             selected = 1, inline = TRUE),
+                actionButton(inputId = "update_settings", label = "Update")
             ),
             
             wellPanel(
@@ -123,7 +130,7 @@ ui <- fluidPage(
             
         ),
         mainPanel(
-            tabsetPanel(
+            tabsetPanel(id = "tabs",
                 tabPanel(title = "Plot", br(), 
                     
                     conditionalPanel(condition = "input.no_mpf == 1",
@@ -166,7 +173,11 @@ ui <- fluidPage(
                         verbatimTextOutput(outputId = "summ_d_2")
                     )
                     
-                )
+                ),
+                
+                tabPanel(title = "Data"),
+                tabPanel(title = "Data_1"),
+                tabPanel(title = "Data_2")
             )
         )
     )
@@ -174,8 +185,15 @@ ui <- fluidPage(
 
 # server
 server <- function(input, output, session) {
-
-    ## leftPanel
+  
+    ## show/hide tabs based on settings
+    observeEvent(input$update_settings, {
+      if (input$no_mpf == 2) {
+        hideTab(inputId = "tabs", target = "Data")
+      }
+    })
+  
+    ## left panel
     output$path_s <- renderUI(
         HTML("<b>MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF")
     )
