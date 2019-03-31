@@ -1,8 +1,6 @@
 ### Todo:
-# - all elements depend on click rather than conditional panels?
 # - populate data tabs
 # - rsconnect
-# isolate everything
 
 # libraries
 library(tibble)
@@ -161,7 +159,9 @@ ui <- fluidPage(
                     
                 ),
                 
-                tabPanel(title = "Data")
+                tabPanel(title = "Data"),
+                tabPanel(title = "Data_1"),
+                tabPanel(title = "Data_2")
             )
         )
     )
@@ -184,9 +184,13 @@ server <- function(input, output, session) {
     observe({
       if(input$no_mpf == 1) {
         showTab(inputId = "tabs", target = "Data")
+        hideTab(inputId = "tabs", target = "Data_1")
+        hideTab(inputId = "tabs", target = "Data_2")
       }
       if(input$no_mpf == 2) {
         hideTab(inputId = "tabs", target = "Data")
+        showTab(inputId = "tabs", target = "Data_1")
+        showTab(inputId = "tabs", target = "Data_2")
       }
     })
     
