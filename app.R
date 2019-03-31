@@ -1,9 +1,10 @@
 ### Todo:
-# - show/hide tab based on click
 # - all elements depend on click rather than conditional panels?
 # - populate data tabs
 # - rsconnect
+# isolate everything
 
+# libraries
 library(tibble)
 library(ggplot2)
 library(shiny)
@@ -63,7 +64,7 @@ is_long <- function(vector) {
     length(unique(vector)) > 1
 }
 
-rbimodal <- function (n,cpct, mu1, mu2, sig1, sig2) {
+rbimodal <- function (n, cpct, mu1, mu2, sig1, sig2) {
     y0 <- rlnorm(n,mean=mu1, sd = sig1)
     y1 <- rlnorm(n,mean=mu2, sd = sig2)
     
@@ -100,15 +101,14 @@ demo_data$SUM_ASSURED  <- c(round(rnorm(n1, mean = 31, sd = 5), digits = 1)*10^3
 ui <- fluidPage(
     
     titlePanel("Model Point Files visualizer", windowTitle = "MPF visualizer"),
-
+    
     sidebarLayout(
         sidebarPanel(
             wellPanel(
                 radioButtons(inputId = "no_mpf", label = "Input type:", choices = c("Show 1 MPF" = 1, "Compare 2 MPFs" = 2), 
                              selected = 1, inline = TRUE),
                 radioButtons(inputId = "hist_type", label = "Histogram type:", choices = c("frequency" = 1, "density" = 2), 
-                             selected = 1, inline = TRUE),
-                actionButton(inputId = "update_settings", label = "Update")
+                             selected = 1, inline = TRUE)
             ),
             
             wellPanel(
@@ -124,7 +124,7 @@ ui <- fluidPage(
             wellPanel(
                 selectInput(inputId = "selected_product", label = "Choose product:",  
                             choices = c("IPROD1", "IPROD2")),
-                selectInput(inputId = "selected_var",     label = "Choose variable:", 
+                selectInput(inputId = "selected_var", label = "Choose variable:", 
                             choices = c("AGE_AT_ENTRY", "SUM_ASSURED"))
             )
             
@@ -143,21 +143,7 @@ ui <- fluidPage(
 
                     hr(),
                     
-                    conditionalPanel(condition = "input.no_mpf == 1 && input.hist_type == 1",
-                        plotOutput(outputId = "plot_s_f") # single frequency
-                    ),
-                    
-                    conditionalPanel(condition = "input.no_mpf == 1 && input.hist_type == 2",
-                        plotOutput(outputId = "plot_s_d") # single density
-                    ),
-                    
-                    conditionalPanel(condition = "input.no_mpf == 2 && input.hist_type == 1",
-                        plotOutput(outputId = "plot_d_f") # double frequency
-                    ),
-                    
-                    conditionalPanel(condition = "input.no_mpf == 2 && input.hist_type == 2",
-                        plotOutput(outputId = "plot_d_d") # double density
-                    ),
+                    plotOutput(outputId = "plot"),
                     
                     hr(),
                     
@@ -175,9 +161,7 @@ ui <- fluidPage(
                     
                 ),
                 
-                tabPanel(title = "Data"),
-                tabPanel(title = "Data_1"),
-                tabPanel(title = "Data_2")
+                tabPanel(title = "Data")
             )
         )
     )
@@ -185,13 +169,6 @@ ui <- fluidPage(
 
 # server
 server <- function(input, output, session) {
-  
-    ## show/hide tabs based on settings
-    observeEvent(input$update_settings, {
-      if (input$no_mpf == 2) {
-        hideTab(inputId = "tabs", target = "Data")
-      }
-    })
   
     ## left panel
     output$path_s <- renderUI(
@@ -202,6 +179,16 @@ server <- function(input, output, session) {
         HTML("<b>1st MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF<br>
               <b>2nd MPF path:</b> C:/Actuarial_Department/Model_YE2017/MPF")
     )
+    
+    #
+    observe({
+      if(input$no_mpf == 1) {
+        showTab(inputId = "tabs", target = "Data")
+      }
+      if(input$no_mpf == 2) {
+        hideTab(inputId = "tabs", target = "Data")
+      }
+    })
     
     # load data
     data_mpf <- reactive({
@@ -240,34 +227,30 @@ server <- function(input, output, session) {
     )
     
     # main plot
-    output$plot_s_f <- renderPlot(
-        ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count..)) +
-            geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
-            xlab(input$selected_var) +
-            scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
-    )
+    output$plot <- renderPlot({
+        if (input$no_mpf == 1 & input$hist_type == 1) {  
+            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count..)) +
+              geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
+              xlab(input$selected_var) +
+              scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
+        } else if (input$no_mpf == 1 & input$hist_type == 2) {
+            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density..)) +
+              geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
+              xlab(input$selected_var) +
+              scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
+        } else if (input$no_mpf == 2 & input$hist_type == 1) {
+            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count.., fill = Year)) +
+              geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
+              xlab(input$selected_var) +
+              scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
+        } else if (input$no_mpf == 2 & input$hist_type == 2) {
+            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density.., fill = Year)) +
+              geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
+              xlab(input$selected_var) +
+              scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
+        }
+    })
     
-    output$plot_s_d <- renderPlot(
-        ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density..)) +
-            geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
-            xlab(input$selected_var) +
-            scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
-    )
-    
-    output$plot_d_f <- renderPlot(
-        ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count.., fill = Year)) +
-            geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
-            xlab(input$selected_var) +
-            scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
-    )
-    
-    output$plot_d_d <- renderPlot(
-        ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density.., fill = Year)) +
-            geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
-            xlab(input$selected_var) +
-            scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
-    )
-
     # variables summary 
     output$summ_text_s <- renderUI(
         HTML("<p>Summary of ", input$selected_var, ":</p>")    
