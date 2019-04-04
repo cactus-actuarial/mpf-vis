@@ -1,6 +1,7 @@
 ### Todo:
 # - populate data tabs
-# - rsconnect
+# - allow own files
+# - rsconnect!
 
 # libraries
 library(tibble)
@@ -103,43 +104,34 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             wellPanel(
+                h4("Load data"),
                 radioButtons(inputId = "no_mpf", label = "Input type:", choices = c("Show 1 MPF" = 1, "Compare 2 MPFs" = 2), 
                              selected = 1, inline = TRUE),
-                radioButtons(inputId = "hist_type", label = "Histogram type:", choices = c("frequency" = 1, "density" = 2), 
-                             selected = 1, inline = TRUE)
+                conditionalPanel(condition = "input.no_mpf == 1",
+                                 htmlOutput(outputId = "path_s")
+                ),
+                conditionalPanel(condition = "input.no_mpf == 2",
+                                 htmlOutput(outputId = "path_d")
+                )
             ),
             
             wellPanel(
-                conditionalPanel(condition = "input.no_mpf == 1",
-                    htmlOutput(outputId = "path_s")
-                ),
-                
-                conditionalPanel(condition = "input.no_mpf == 2",
-                    htmlOutput(outputId = "path_d")
-                )
+                h4("Graph settings"),
+                selectInput(inputId = "selected_var", label = "Choose variable:", 
+                            choices = c("AGE_AT_ENTRY", "SUM_ASSURED")),
+                radioButtons(inputId = "hist_type", label = "Histogram type:", choices = c("frequency" = 1, "density" = 2), 
+                             selected = 1, inline = TRUE)
             ),            
             
             wellPanel(
                 selectInput(inputId = "selected_product", label = "Choose product:",  
-                            choices = c("IPROD1", "IPROD2")),
-                selectInput(inputId = "selected_var", label = "Choose variable:", 
-                            choices = c("AGE_AT_ENTRY", "SUM_ASSURED"))
+                            choices = c("IPROD1", "IPROD2"))
             )
             
         ),
         mainPanel(
             tabsetPanel(id = "tabs",
                 tabPanel(title = "Plot", br(), 
-                    
-                    conditionalPanel(condition = "input.no_mpf == 1",
-                        htmlOutput(outputId = "top_text_s") # single
-                    ),
-                    
-                    conditionalPanel(condition = "input.no_mpf == 2",
-                        htmlOutput(outputId = "top_text_d") # double
-                    ),
-
-                    hr(),
                     
                     plotOutput(outputId = "plot"),
                     
@@ -155,8 +147,17 @@ ui <- fluidPage(
                         verbatimTextOutput(outputId = "summ_d_1"),
                         htmlOutput(outputId = "summ_text_d_2"),
                         verbatimTextOutput(outputId = "summ_d_2")
-                    )
+                    ),
                     
+                    hr(),
+                    
+                    conditionalPanel(condition = "input.no_mpf == 1",
+                                     htmlOutput(outputId = "top_text_s") # single
+                    ),
+                    
+                    conditionalPanel(condition = "input.no_mpf == 2",
+                                     htmlOutput(outputId = "top_text_d") # double
+                    )
                 ),
                 
                 tabPanel(title = "Data"),
@@ -172,12 +173,12 @@ server <- function(input, output, session) {
   
     ## left panel
     output$path_s <- renderUI(
-        HTML("<b>MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF")
+        HTML("<b>MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF/IPROD1.rpt")
     )
 
     output$path_d <- renderUI(
-        HTML("<b>1st MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF<br>
-              <b>2nd MPF path:</b> C:/Actuarial_Department/Model_YE2017/MPF")
+        HTML("<b>1st MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF/IPROD1.rpt<br>
+              <b>2nd MPF path:</b> C:/Actuarial_Department/Model_YE2017/MPF/IPROD1.rpt")
     )
     
     #
