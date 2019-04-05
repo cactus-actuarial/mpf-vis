@@ -1,7 +1,6 @@
 ### Todo:
-# - populate data tabs
 # - allow own files
-# - rsconnect!
+# - deploy!
 
 # libraries
 library(tibble)
@@ -72,28 +71,20 @@ rbimodal <- function (n, cpct, mu1, mu2, sig1, sig2) {
 }
 
 # create demo data
-n1 = 12000
-n2 = 11500
-n3 = 5000
-n4 = 6000
+n1 = 5000
+n2 = 6000
 
-demo_data <- as.data.frame(matrix(nrow = (n1 + n2 + n3 + n4), ncol = 4))
-colnames(demo_data) <- c("Year", "Product", "AGE_AT_ENTRY", "SUM_ASSURED")
+demo_data <- as.data.frame(matrix(nrow = (n1 + n2), ncol = 3))
+colnames(demo_data) <- c("MPF", "AGE_AT_ENTRY", "SUM_ASSURED")
 
-demo_data$Year <- c(rep("2018", n1), rep("2017", n2), rep("2018", n3), rep("2017", n4))
-
-demo_data$Product <- c(rep("IPROD1", n1), rep("IPROD1", n2), rep("IPROD2", n3), rep("IPROD2", n4))
+demo_data$MPF <- c(rep("1st_MPF", n1), rep("2nd_MPF", n2))
 
 demo_data$AGE_AT_ENTRY <- as.integer(
-                          c(round(rnorm(n1-n2, mean = 40.5, sd = 5), 0),  round(rnorm(n2, mean = 40, sd = 5), 0), # 2018 IPROD1
-                            round(rnorm(n2, mean = 40, sd = 5), 0), # 2017 IPROD1
-                            round(rbimodal(n3, 0.2, log(30), log(45), log(1.1), log(1.1)), 0),  # 2018 IPROD2
-                            round(rbimodal(n4, 0.2, log(30), log(45), log(1.1), log(1.1)), 0))) # 2017 IPROD2
+                          c(round(rbimodal(n1, 0.2, log(30), log(45), log(1.1), log(1.1)), 0),  
+                            round(rbimodal(n2, 0.2, log(30), log(45), log(1.1), log(1.1)), 0)))
 
-demo_data$SUM_ASSURED  <- c(round(rnorm(n1, mean = 31, sd = 5), digits = 1)*10^3, # 2018 IPROD1
-                            round(rnorm(n2, mean = 29, sd = 5), digits = 1)*10^3, # 2017 IPROD1
-                            round(rlnorm(n3, meanlog = log(100), sdlog = log(1.2)), digits = 1)*10^2, # 2018 IPROD2
-                            round(rlnorm(n4, meanlog = log(100), sdlog = log(1.2)), digits = 1)*10^2) # 2017 IPROD2
+demo_data$SUM_ASSURED  <- c(round(rlnorm(n1, meanlog = log(100), sdlog = log(1.2)), digits = 1)*10^2,
+                            round(rlnorm(n2, meanlog = log(100), sdlog = log(1.2)), digits = 1)*10^2)
 
 ### app
 # ui
@@ -121,14 +112,9 @@ ui <- fluidPage(
                             choices = c("AGE_AT_ENTRY", "SUM_ASSURED")),
                 radioButtons(inputId = "hist_type", label = "Histogram type:", choices = c("frequency" = 1, "density" = 2), 
                              selected = 1, inline = TRUE)
-            ),            
-            
-            wellPanel(
-                selectInput(inputId = "selected_product", label = "Choose product:",  
-                            choices = c("IPROD1", "IPROD2"))
             )
-            
         ),
+        
         mainPanel(
             tabsetPanel(id = "tabs",
                 tabPanel(title = "Plot", br(), 
@@ -139,14 +125,14 @@ ui <- fluidPage(
                     
                     conditionalPanel(condition = "input.no_mpf == 1",
                         htmlOutput(outputId = "summ_text_s"),
-                        verbatimTextOutput(outputId = "summ_s")
+                        verbatimTextOutput(outputId = "summ_s") # single
                     ),
                     
                     conditionalPanel(condition = "input.no_mpf == 2",
                         htmlOutput(outputId = "summ_text_d_1"),
-                        verbatimTextOutput(outputId = "summ_d_1"),
+                        verbatimTextOutput(outputId = "summ_d_1"), # double 1st MPF
                         htmlOutput(outputId = "summ_text_d_2"),
-                        verbatimTextOutput(outputId = "summ_d_2")
+                        verbatimTextOutput(outputId = "summ_d_2")  # double 2nd MPF
                     ),
                     
                     hr(),
@@ -160,9 +146,12 @@ ui <- fluidPage(
                     )
                 ),
                 
-                tabPanel(title = "Data"),
-                tabPanel(title = "Data_1"),
-                tabPanel(title = "Data_2")
+                tabPanel(title = "Data_1",
+                    dataTableOutput(outputId = "data_1")
+                ),
+                tabPanel(title = "Data_2",
+                    dataTableOutput(outputId = "data_2")
+                )
             )
         )
     )
@@ -173,24 +162,20 @@ server <- function(input, output, session) {
   
     ## left panel
     output$path_s <- renderUI(
-        HTML("<b>MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF/IPROD1.rpt")
+        HTML("<b>Choose MPF:</b></br> C:/Actuarial_Department/Model_YE2018/MPF/IPROD1.rpt")
     )
 
     output$path_d <- renderUI(
-        HTML("<b>1st MPF path:</b> C:/Actuarial_Department/Model_YE2018/MPF/IPROD1.rpt<br>
-              <b>2nd MPF path:</b> C:/Actuarial_Department/Model_YE2017/MPF/IPROD1.rpt")
+        HTML("<b>Choose 1st MPF:</b></br> C:/Actuarial_Department/Model_YE2018/MPF/IPROD1.rpt<br>
+              <b>Choose 2nd MPF:</b></br> C:/Actuarial_Department/Model_YE2017/MPF/IPROD1.rpt")
     )
     
-    #
+    # show/hide Data_2 tab
     observe({
       if(input$no_mpf == 1) {
-        showTab(inputId = "tabs", target = "Data")
-        hideTab(inputId = "tabs", target = "Data_1")
         hideTab(inputId = "tabs", target = "Data_2")
       }
       if(input$no_mpf == 2) {
-        hideTab(inputId = "tabs", target = "Data")
-        showTab(inputId = "tabs", target = "Data_1")
         showTab(inputId = "tabs", target = "Data_2")
       }
     })
@@ -198,12 +183,10 @@ server <- function(input, output, session) {
     # load data
     data_mpf <- reactive({
         if (input$no_mpf == 1) {
-            req(input$selected_product)
-            data <- subset(demo_data, Product == input$selected_product & Year == "2018")
+            data <- subset(demo_data, MPF == "1st_MPF")
             data
         } else if (input$no_mpf == 2) {
-            req(input$selected_product)
-            data <- subset(demo_data, Product == input$selected_product)
+            data <- demo_data
             data
         }
     })
@@ -227,8 +210,8 @@ server <- function(input, output, session) {
     )
     
     output$top_text_d <- renderUI(
-        HTML("<br>1st MPF contains ", nrow(subset(data_mpf(), Year == "2018")), " records.",
-             "<br>2nd MPF contains ", nrow(subset(data_mpf(), Year == "2017")), " records.")
+        HTML("<br>1st MPF contains ", nrow(subset(data_mpf(), MPF == "1st_MPF")), " records.",
+             "<br>2nd MPF contains ", nrow(subset(data_mpf(), MPF == "2nd_MPF")), " records.")
     )
     
     # main plot
@@ -244,12 +227,12 @@ server <- function(input, output, session) {
               xlab(input$selected_var) +
               scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
         } else if (input$no_mpf == 2 & input$hist_type == 1) {
-            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count.., fill = Year)) +
+            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count.., fill = MPF)) +
               geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
               xlab(input$selected_var) +
               scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
         } else if (input$no_mpf == 2 & input$hist_type == 2) {
-            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density.., fill = Year)) +
+            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density.., fill = MPF)) +
               geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
               xlab(input$selected_var) +
               scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
@@ -271,7 +254,7 @@ server <- function(input, output, session) {
     )
     
     output$summ_d_1 <- renderPrint(
-        summary(subset(data_mpf(), Year == 2018)[, input$selected_var])
+        summary(subset(data_mpf(), MPF == "1st_MPF")[, input$selected_var])
     )
     
     output$summ_text_d_2 <- renderUI(
@@ -279,8 +262,12 @@ server <- function(input, output, session) {
     )
     
     output$summ_d_2 <- renderPrint(
-        summary(subset(data_mpf(), Year = 2017)[, input$selected_var])
+        summary(subset(data_mpf(), MPF == "2nd_MPF")[, input$selected_var])
     )
+    
+    ## tab Data
+    output$data_1 <- DT::renderDataTable(subset(demo_data, subset = (MPF == "1st_MPF"), select = c(AGE_AT_ENTRY, SUM_ASSURED)))
+    output$data_2 <- DT::renderDataTable(subset(demo_data, subset = (MPF == "2nd_MPF"), select = c(AGE_AT_ENTRY, SUM_ASSURED)))
 }
 
 shinyApp(ui = ui, server = server)
