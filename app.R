@@ -90,7 +90,7 @@ demo_data$SUM_ASSURED  <- c(round(rlnorm(n1, meanlog = log(100), sdlog = log(1.2
 # ui
 ui <- fluidPage(
     
-    titlePanel("Model Point Files visualizer", windowTitle = "MPF visualizer"),
+    titlePanel("Model Point Files visualiser", windowTitle = "MPF visualiser"),
     
     sidebarLayout(
         sidebarPanel(
@@ -162,12 +162,12 @@ server <- function(input, output, session) {
   
     ## left panel
     output$path_s <- renderUI(
-        HTML("<b>Choose MPF:</b></br> C:/Actuarial_Department/Model_YE2018/MPF/IPROD1.rpt")
+        HTML("<b>Choose MPF:</b></br> C:/Actuarial/YE2018/MPF/IPROD1.rpt")
     )
 
     output$path_d <- renderUI(
-        HTML("<b>Choose 1st MPF:</b></br> C:/Actuarial_Department/Model_YE2018/MPF/IPROD1.rpt<br>
-              <b>Choose 2nd MPF:</b></br> C:/Actuarial_Department/Model_YE2017/MPF/IPROD1.rpt")
+        HTML("<b>Choose 1st MPF:</b></br> C:/Actuarial/YE2018/MPF/IPROD1.rpt<br>
+              <b>Choose 2nd MPF:</b></br> C:/Actuarial/YE2017/MPF/IPROD1.rpt")
     )
     
     # show/hide Data_2 tab
@@ -206,11 +206,11 @@ server <- function(input, output, session) {
     ## tab Plot
     # information about number of records
     output$top_text_s <- renderUI(
-        HTML("<br>MPF contains ", nrow(data_mpf()), " records.")
+        HTML("MPF contains ", nrow(data_mpf()), " records.")
     )
     
     output$top_text_d <- renderUI(
-        HTML("<br>1st MPF contains ", nrow(subset(data_mpf(), MPF == "1st_MPF")), " records.",
+        HTML("1st MPF contains ", nrow(subset(data_mpf(), MPF == "1st_MPF")), " records.",
              "<br>2nd MPF contains ", nrow(subset(data_mpf(), MPF == "2nd_MPF")), " records.")
     )
     
