@@ -206,6 +206,8 @@ server <- function(input, output, session) {
     
     # load data
     data_mpf <- reactive({
+        
+      
         # sample data, 1 MPF
         if (input$no_mpf == 1 && input$sample_data == 1) {
             data <- subset(demo_data, MPF == "1st_MPF")
@@ -238,6 +240,45 @@ server <- function(input, output, session) {
           data <- rbind(subset(data_1, select = com_cols), subset(data_2, select = com_cols))
         }
     })
+    
+    # # update variables select list
+    # observe({
+    #   if (input$no_mpf == 1) {
+    #     req(input$path)
+    #     req(input$selected_product)
+    #     
+    #     path <- input$path
+    #     product <- input$selected_product
+    #     data <- read_mpf(path, product)
+    #     
+    #     which(sapply(data, is_long))
+    #     
+    #     # only variables with >1 unique values
+    #     long_cols <- colnames(data)[which(sapply(data, is_long))]
+    #     
+    #     updateSelectInput(session, "selected_var", label = "Choose variable:", choices = long_cols, selected = "ENTRY_YEAR")
+    #   } else if (input$no_mpf == 2) {
+    #     req(input$path_1)
+    #     req(input$path_2)
+    #     req(input$selected_product)
+    #     
+    #     path_1  <- input$path_1
+    #     path_2  <- input$path_2
+    #     product <- input$selected_product
+    #     
+    #     data_1 <- read_mpf(path_1, product)
+    #     data_2 <- read_mpf(path_2, product)
+    #     
+    #     # only variables with >1 unique values
+    #     long_cols_1 <- colnames(data_1)[which(sapply(data_1, is_long))]
+    #     long_cols_2 <- colnames(data_2)[which(sapply(data_2, is_long))]
+    #     
+    #     # common columns
+    #     com_cols <- intersect(long_cols_1, long_cols_2)
+    #     
+    #     updateSelectInput(session, "selected_var", label = "Choose variable:", choices = com_cols, selected = "ENTRY_YEAR")
+    #   }
+    # })
     
     # x-axis breaks
     binsize <- reactive({
