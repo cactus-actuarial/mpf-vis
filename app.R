@@ -1,6 +1,6 @@
 ### Todo:
 # - allow own files
-# - deploy!
+# - lp dla drugiego MPF od 1
 
 # libraries
 library(tibble)
@@ -16,9 +16,8 @@ options(shiny.reactlog = TRUE)
 set.seed(123)
 
 # functions
-read_mpf <- function(path, filename) {
-    file <- paste(path, "\\", filename, ".rpt", sep = "")
-    data <- read.table(file = file, sep = ",", skip = 1, header = TRUE)
+read_mpf <- function(datapath) {
+    data <- read.table(file = datapath, sep = ",", skip = 1, header = TRUE)
     data$X.1 <- NULL
     return(data)
 }
@@ -98,12 +97,37 @@ ui <- fluidPage(
                 h4("Load data"),
                 radioButtons(inputId = "no_mpf", label = "Input type:", choices = c("Show 1 MPF" = 1, "Compare 2 MPFs" = 2), 
                              selected = 1, inline = TRUE),
-                conditionalPanel(condition = "input.no_mpf == 1",
+                
+                hr(),
+                
+                strong("Choose RPT file:"),
+                
+                checkboxInput(inputId = "sample_data", label = "Use sample data", value = TRUE),
+                
+                
+                # own data, 1 MPF
+                conditionalPanel(condition = "input.sample_data == 0",
+                                 fileInput(inputId = "file_1", label = "1st_MPF", accept = ".rpt")
+                ),
+                
+                # own data, 2 MPFs
+                conditionalPanel(condition = "input.sample_data == 0 && input.no_mpf == 2",
+                                 fileInput(inputId = "file_2", label = "2nd_MPF", accept = ".rpt")
+                ),
+
+                
+                # sample data, 1 MPF
+                conditionalPanel(condition = "input.sample_data == 1 && input.no_mpf == 1",
                                  htmlOutput(outputId = "path_s")
                 ),
-                conditionalPanel(condition = "input.no_mpf == 2",
+                
+                # sample data, 2 MPFs
+                conditionalPanel(condition = "input.sample_data == 1 && input.no_mpf == 2",
                                  htmlOutput(outputId = "path_d")
-                )
+                ),
+                
+                # action button
+                actionButton(inputId = "button", label = "Update")
             ),
             
             wellPanel(
@@ -162,12 +186,12 @@ server <- function(input, output, session) {
   
     ## left panel
     output$path_s <- renderUI(
-        HTML("<b>Choose MPF:</b></br> C:/Actuarial/YE2018/MPF/IPROD1.rpt")
+        HTML("<b>MPF:</b> C:/Actuarial/YE2018/MPF/IPROD1.rpt")
     )
 
     output$path_d <- renderUI(
-        HTML("<b>Choose 1st MPF:</b></br> C:/Actuarial/YE2018/MPF/IPROD1.rpt<br>
-              <b>Choose 2nd MPF:</b></br> C:/Actuarial/YE2017/MPF/IPROD1.rpt")
+        HTML("<b>1st MPF:</b> C:/Actuarial/YE2018/MPF/IPROD1.rpt<br>
+              <b>2nd MPF:</b> C:/Actuarial/YE2017/MPF/IPROD1.rpt")
     )
     
     # show/hide Data_2 tab
@@ -182,12 +206,36 @@ server <- function(input, output, session) {
     
     # load data
     data_mpf <- reactive({
-        if (input$no_mpf == 1) {
+        # sample data, 1 MPF
+        if (input$no_mpf == 1 && input$sample_data == 1) {
             data <- subset(demo_data, MPF == "1st_MPF")
             data
-        } else if (input$no_mpf == 2) {
+        # sample data, 2 MPFs
+        } else if (input$no_mpf == 2 && input$sample_data == 1) {
             data <- demo_data
             data
+        # own data, 1 MPF
+        } else if (input$no_mpf == 1 && input$sample_data == 0) {
+            inFile <- input$file_1
+            if (is.null(inFile))
+              return(NULL)
+            read_mpf(inFile$datapath)
+        # own data, 2 MPFs
+        } else if (input$no_mpf == 2 && input$sample_data == 0) {
+          inFile1 <- input$file_1
+          inFile2 <- input$file_2
+          if (is.null(inFile1) || is.null(inFile2))
+            return(NULL)
+          
+          data_1 <- read_mpf(inFile1$datapath)
+          data_2 <- read_mpf(inFile2$datapath)
+
+          # set indicators for two datasets
+          data_1$MPF <- rep("1st_MPF", dim(data_1)[1])
+          data_2$MPF <- rep("2nd_MPF", dim(data_2)[1])
+          
+          com_cols <- intersect(colnames(data_1), colnames(data_2))
+          data <- rbind(subset(data_1, select = com_cols), subset(data_2, select = com_cols))
         }
     })
     
