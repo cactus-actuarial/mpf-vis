@@ -1,7 +1,3 @@
-### Todo:
-# - allow own files
-# - lp dla drugiego MPF od 1
-
 # libraries
 library(tibble)
 library(ggplot2)
@@ -12,7 +8,6 @@ library(DT)
 
 # settings
 options(scipen = 999) # disable scientific notation
-options(shiny.reactlog = TRUE)
 set.seed(123)
 
 # functions
@@ -107,12 +102,12 @@ ui <- fluidPage(
                 
                 # own data, 1 MPF
                 conditionalPanel(condition = "input.sample_data == 0",
-                                 fileInput(inputId = "file_1", label = "1st_MPF", accept = ".rpt")
+                                 fileInput(inputId = "file_1", label = "1st MPF:", accept = ".rpt")
                 ),
                 
                 # own data, 2 MPFs
                 conditionalPanel(condition = "input.sample_data == 0 && input.no_mpf == 2",
-                                 fileInput(inputId = "file_2", label = "2nd_MPF", accept = ".rpt")
+                                 fileInput(inputId = "file_2", label = "2nd MPF:", accept = ".rpt")
                 ),
 
                 
@@ -124,10 +119,7 @@ ui <- fluidPage(
                 # sample data, 2 MPFs
                 conditionalPanel(condition = "input.sample_data == 1 && input.no_mpf == 2",
                                  htmlOutput(outputId = "path_d")
-                ),
-                
-                # action button
-                actionButton(inputId = "button", label = "Update")
+                )
             ),
             
             wellPanel(
@@ -147,20 +139,7 @@ ui <- fluidPage(
                     
                     hr(),
                     
-                    conditionalPanel(condition = "input.no_mpf == 1",
-                        htmlOutput(outputId = "summ_text_s"),
-                        verbatimTextOutput(outputId = "summ_s") # single
-                    ),
-                    
-                    conditionalPanel(condition = "input.no_mpf == 2",
-                        htmlOutput(outputId = "summ_text_d_1"),
-                        verbatimTextOutput(outputId = "summ_d_1"), # double 1st MPF
-                        htmlOutput(outputId = "summ_text_d_2"),
-                        verbatimTextOutput(outputId = "summ_d_2")  # double 2nd MPF
-                    ),
-                    
-                    hr(),
-                    
+                    # no of records in MPF
                     conditionalPanel(condition = "input.no_mpf == 1",
                                      htmlOutput(outputId = "top_text_s") # single
                     ),
@@ -186,7 +165,7 @@ server <- function(input, output, session) {
   
     ## left panel
     output$path_s <- renderUI(
-        HTML("<b>MPF:</b> C:/Actuarial/YE2018/MPF/IPROD1.rpt")
+        HTML("<b>1st MPF:</b> C:/Actuarial/YE2018/MPF/IPROD1.rpt")
     )
 
     output$path_d <- renderUI(
@@ -206,8 +185,6 @@ server <- function(input, output, session) {
     
     # load data
     data_mpf <- reactive({
-        
-      
         # sample data, 1 MPF
         if (input$no_mpf == 1 && input$sample_data == 1) {
             data <- subset(demo_data, MPF == "1st_MPF")
@@ -221,64 +198,36 @@ server <- function(input, output, session) {
             inFile <- input$file_1
             if (is.null(inFile))
               return(NULL)
-            read_mpf(inFile$datapath)
+            data <- read_mpf(inFile$datapath)
+            data$MPF <- rep("1st_MPF", dim(data)[1])
+            data
         # own data, 2 MPFs
         } else if (input$no_mpf == 2 && input$sample_data == 0) {
-          inFile1 <- input$file_1
-          inFile2 <- input$file_2
-          if (is.null(inFile1) || is.null(inFile2))
-            return(NULL)
-          
-          data_1 <- read_mpf(inFile1$datapath)
-          data_2 <- read_mpf(inFile2$datapath)
-
-          # set indicators for two datasets
-          data_1$MPF <- rep("1st_MPF", dim(data_1)[1])
-          data_2$MPF <- rep("2nd_MPF", dim(data_2)[1])
-          
-          com_cols <- intersect(colnames(data_1), colnames(data_2))
-          data <- rbind(subset(data_1, select = com_cols), subset(data_2, select = com_cols))
+            inFile1 <- input$file_1
+            inFile2 <- input$file_2
+            if (is.null(inFile1) || is.null(inFile2))
+              return(NULL)
+            
+            data_1 <- read_mpf(inFile1$datapath)
+            data_2 <- read_mpf(inFile2$datapath)
+  
+            # set indicators for two datasets
+            data_1$MPF <- rep("1st_MPF", dim(data_1)[1])
+            data_2$MPF <- rep("2nd_MPF", dim(data_2)[1])
+            
+            com_cols <- intersect(colnames(data_1), colnames(data_2))
+            data <- rbind(subset(data_1, select = com_cols), subset(data_2, select = com_cols))
+            data
         }
     })
     
-    # # update variables select list
-    # observe({
-    #   if (input$no_mpf == 1) {
-    #     req(input$path)
-    #     req(input$selected_product)
-    #     
-    #     path <- input$path
-    #     product <- input$selected_product
-    #     data <- read_mpf(path, product)
-    #     
-    #     which(sapply(data, is_long))
-    #     
-    #     # only variables with >1 unique values
-    #     long_cols <- colnames(data)[which(sapply(data, is_long))]
-    #     
-    #     updateSelectInput(session, "selected_var", label = "Choose variable:", choices = long_cols, selected = "ENTRY_YEAR")
-    #   } else if (input$no_mpf == 2) {
-    #     req(input$path_1)
-    #     req(input$path_2)
-    #     req(input$selected_product)
-    #     
-    #     path_1  <- input$path_1
-    #     path_2  <- input$path_2
-    #     product <- input$selected_product
-    #     
-    #     data_1 <- read_mpf(path_1, product)
-    #     data_2 <- read_mpf(path_2, product)
-    #     
-    #     # only variables with >1 unique values
-    #     long_cols_1 <- colnames(data_1)[which(sapply(data_1, is_long))]
-    #     long_cols_2 <- colnames(data_2)[which(sapply(data_2, is_long))]
-    #     
-    #     # common columns
-    #     com_cols <- intersect(long_cols_1, long_cols_2)
-    #     
-    #     updateSelectInput(session, "selected_var", label = "Choose variable:", choices = com_cols, selected = "ENTRY_YEAR")
-    #   }
-    # })
+    # update variables select list
+    observe({
+        req(data_mpf())
+        data <- data_mpf()
+        numeric_cols <- colnames(data)[which(sapply(data, is.numeric))]
+        updateSelectInput(session, "selected_var", choices = numeric_cols)
+    })
     
     # x-axis breaks
     binsize <- reactive({
@@ -292,71 +241,66 @@ server <- function(input, output, session) {
     })
     
     
-    ## tab Plot
-    # information about number of records
-    output$top_text_s <- renderUI(
-        HTML("MPF contains ", nrow(data_mpf()), " records.")
-    )
-    
-    output$top_text_d <- renderUI(
-        HTML("1st MPF contains ", nrow(subset(data_mpf(), MPF == "1st_MPF")), " records.",
-             "<br>2nd MPF contains ", nrow(subset(data_mpf(), MPF == "2nd_MPF")), " records.")
-    )
-    
-    # main plot
+    ### tab Plot
+
+    ## main plot
     output$plot <- renderPlot({
-        if (input$no_mpf == 1 & input$hist_type == 1) {  
-            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count..)) +
-              geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
-              xlab(input$selected_var) +
-              scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
-        } else if (input$no_mpf == 1 & input$hist_type == 2) {
-            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density..)) +
-              geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
-              xlab(input$selected_var) +
-              scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
-        } else if (input$no_mpf == 2 & input$hist_type == 1) {
-            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..count.., fill = MPF)) +
-              geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
-              xlab(input$selected_var) +
-              scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
-        } else if (input$no_mpf == 2 & input$hist_type == 2) {
-            ggplot(data = data_mpf(), aes(x = data_mpf()[, input$selected_var], y = ..density.., fill = MPF)) +
-              geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
-              xlab(input$selected_var) +
-              scale_x_continuous(breaks = breaks_range(), labels=function(x) format(round(x, 0), big.mark = " ", scientific = FALSE))
+        data_mpf <- data_mpf()
+        if (is.null(data_mpf)) {}
+        else {
+          if (input$no_mpf == 1 & input$hist_type == 1) {  
+              ggplot(data = data_mpf, aes(x = data_mpf[, input$selected_var], y = ..count..)) +
+                geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
+                xlab(input$selected_var) +
+                scale_x_continuous(breaks = breaks_range())
+          } else if (input$no_mpf == 1 & input$hist_type == 2) {
+              ggplot(data = data_mpf, aes(x = data_mpf[, input$selected_var], y = ..density..)) +
+                geom_histogram(binwidth = binsize(), fill = "white", colour = "black") +
+                xlab(input$selected_var) +
+                scale_x_continuous(breaks = breaks_range())
+          } else if (input$no_mpf == 2 & input$hist_type == 1) {
+              ggplot(data = data_mpf, aes(x = data_mpf[, input$selected_var], y = ..count.., fill = MPF)) +
+                geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
+                xlab(input$selected_var) +
+                scale_x_continuous(breaks = breaks_range())
+          } else if (input$no_mpf == 2 & input$hist_type == 2) {
+              ggplot(data = data_mpf, aes(x = data_mpf[, input$selected_var], y = ..density.., fill = MPF)) +
+                geom_histogram(position = "identity", binwidth = binsize(), colour = "black", alpha = 0.4) +
+                xlab(input$selected_var) +
+                scale_x_continuous(breaks = breaks_range())
+          }
         }
     })
     
-    # variables summary 
-    output$summ_text_s <- renderUI(
-        HTML("<p>Summary of ", input$selected_var, ":</p>")    
+    ## information about number of records
+    output$top_text_s <- renderUI(
+      if (is.null(data_mpf())) {}
+      else {
+        HTML("MPF contains ", nrow(data_mpf()), " records.")
+      }
     )
     
-    output$summ_s <- renderPrint(
-        summary(data_mpf()[, input$selected_var])
+    output$top_text_d <- renderUI(
+      if (is.null(data_mpf())) {}
+      else {
+        HTML("1st MPF contains ", nrow(subset(data_mpf(), MPF == "1st_MPF")), " records.",
+             "<br>2nd MPF contains ", nrow(subset(data_mpf(), MPF == "2nd_MPF")), " records.")
+      }
     )
     
-    output$summ_text_d_1 <- renderUI(
-        HTML("<p>Summary of ", input$selected_var, ":</p>
-              <p>1st MPF:")    
+    ### tab Data
+    output$data_1 <- DT::renderDataTable(
+      if (is.null(data_mpf())) {}
+      else {
+        subset(data_mpf(), MPF == "1st_MPF")
+      }
     )
-    
-    output$summ_d_1 <- renderPrint(
-        summary(subset(data_mpf(), MPF == "1st_MPF")[, input$selected_var])
+    output$data_2 <- DT::renderDataTable(
+      if (is.null(data_mpf())) {}
+      else {
+        subset(data_mpf(), MPF == "2nd_MPF")
+      }
     )
-    
-    output$summ_text_d_2 <- renderUI(
-        HTML("<p>2nd MPF:</p>")    
-    )
-    
-    output$summ_d_2 <- renderPrint(
-        summary(subset(data_mpf(), MPF == "2nd_MPF")[, input$selected_var])
-    )
-    
-    ## tab Data
-    output$data_1 <- DT::renderDataTable(subset(demo_data, subset = (MPF == "1st_MPF"), select = c(AGE_AT_ENTRY, SUM_ASSURED)))
-    output$data_2 <- DT::renderDataTable(subset(demo_data, subset = (MPF == "2nd_MPF"), select = c(AGE_AT_ENTRY, SUM_ASSURED)))
 }
 
 shinyApp(ui = ui, server = server)
